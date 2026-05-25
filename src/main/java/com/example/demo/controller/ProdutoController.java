@@ -1,8 +1,9 @@
 package com.example.demo.controller;
 
-import com.example.demo.model.Produto;
-import com.example.demo.repository.ProdutoRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.demo.dto.ProdutoDTO;
+import com.example.demo.service.ProdutoService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,49 +14,50 @@ import java.util.Optional;
 @RequestMapping("/produto")
 public class ProdutoController {
 
-    @Autowired
-    private ProdutoRepository produtoRepository;
+    private final ProdutoService produtoService;
 
-    // POST /produto - Cadastrar [cite: 8]
+    // Injeção de dependência por construtor (Exigência da atividade)
+    public ProdutoController(ProdutoService produtoService) {
+        this.produtoService = produtoService;
+    }
+
+    // POST /produto - 201 Created
     @PostMapping
-    public ResponseEntity<Produto> cadastrarProduto(@RequestBody Produto produto) {
-        Produto novoProduto = produtoRepository.save(produto);
-        return ResponseEntity.status(201).body(novoProduto);
+    public ResponseEntity<ProdutoDTO> cadastrarProduto(@Valid @RequestBody ProdutoDTO dto) {
+        ProdutoDTO novoDto = produtoService.cadastrar(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(novoDto);
     }
 
-    // GET /produto - Listar todos [cite: 9]
+    // GET /produto - 200 OK
     @GetMapping
-    public ResponseEntity<List<Produto>> listarProdutos() {
-        List<Produto> produtos = produtoRepository.findAll();
-        return ResponseEntity.ok(produtos);
+    public ResponseEntity<List<ProdutoDTO>> listarProdutos() {
+        List<ProdutoDTO> lista = produtoService.listarTodos();
+        return ResponseEntity.ok(lista);
     }
 
-    // PUT /produto/{id} - Atualizar [cite: 10]
+    // GET /produto/{id} - 200 OK ou 404 Not Found
+    @GetMapping("/{id}")
+    public ResponseEntity<ProdutoDTO> buscarPorId(@PathVariable Long id) {
+        Optional<ProdutoDTO> dto = produtoService.buscarPorId(id);
+        return dto.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // PUT /produto/{id} - 200 OK ou 404 Not Found
     @PutMapping("/{id}")
-    public ResponseEntity<Produto> atualizarProduto(@PathVariable Long id, @RequestBody Produto produtoAtualizado) {
-        Optional<Produto> produtoExistente = produtoRepository.findById(id);
-
-        if (produtoExistente.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
-        Produto produto = produtoExistente.get();
-        produto.setNome(produtoAtualizado.getNome());
-        produto.setPreco(produtoAtualizado.getPreco());
-        produto.setCategoria(produtoAtualizado.getCategoria());
-
-        Produto produtoSalvo = produtoRepository.save(produto);
-        return ResponseEntity.ok(produtoSalvo);
+    public ResponseEntity<ProdutoDTO> atualizarProduto(@PathVariable Long id, @Valid @RequestBody ProdutoDTO dto) {
+        Optional<ProdutoDTO> atualizado = produtoService.atualizar(id, dto);
+        return atualizado.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    // DELETE /produto/{id} - Remover [cite: 11]
+    // DELETE /produto/{id} - 200 OK ou 404 Not Found
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> removerProduto(@PathVariable Long id) {
-        if (!produtoRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
+        boolean deletado = produtoService.deletar(id);
+        if (deletado) {
+            return ResponseEntity.ok().build(); // A professora pediu 200 OK para remoção nesta atividade
         }
-
-        produtoRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.notFound().build();
     }
 }
